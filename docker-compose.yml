@@ -1,0 +1,453 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: visiyon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-visiyon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-visiyon}
+      POSTGRES_DB: ${POSTGRES_DB:-visiyon}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-visiyon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [visiyon]
+
+  redis:
+    image: redis:7-alpine
+    container_name: visiyon-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [visiyon]
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: visiyon-searxng
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://localhost/searxng/}
+      UWSGI_WORKERS: 2
+      UWSGI_THREADS: 2
+    # No published port: only reachable from other containers on the
+    # `visiyon` network (backend calls it directly; nginx optionally
+    # proxies /searxng/ for the raw web UI — see nginx.conf).
+    networks: [visiyon]
+
+  # Speech-to-text — fully local, open-source (MIT), no API key.
+  # https://github.com/fedirz/faster-whisper-server
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    container_name: visiyon-whisper
+    restart: unless-stopped
+    environment:
+      WHISPER__MODEL: ${WHISPER_MODEL:-base}
+    volumes:
+      - whisper_data:/root/.cache/huggingface
+    networks: [visiyon]
+
+  # Text-to-speech — fully local, open-source (MIT), no API key.
+  # https://github.com/rhasspy/piper
+  piper:
+    build:
+      context: ./piper
+    container_name: visiyon-piper
+    restart: unless-stopped
+    networks: [visiyon]
+
+  # Text-to-speech (alternative) — Coqui XTTS-v2, much more natural/human
+  # than Piper and supports voice cloning, but heavier: needs a GPU for
+  # real-time-ish latency. Opt-in — not started by a plain `docker compose
+  # up`. Start with `docker compose --profile tts-coqui up -d` and select
+  # "Coqui XTTS-v2" as the provider in Admin > Settings > Voice.
+  coqui:
+    build:
+      context: ./coqui
+    container_name: visiyon-coqui
+    restart: unless-stopped
+    profiles: ["tts-coqui"]
+    # Uncomment to run on GPU (requires the NVIDIA container toolkit):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    volumes:
+      - coqui_models:/root/.local/share/tts
+    networks: [visiyon]
+
+  # Text-to-speech (alternative) — Kokoro-TTS, a small but natural-sounding
+  # open model that runs acceptably on CPU. Opt-in, same as coqui above.
+  # Start with `docker compose --profile tts-kokoro up -d` and select
+  # "Kokoro" as the provider in Admin > Settings > Voice.
+  kokoro:
+    build:
+      context: ./kokoro
+    container_name: visiyon-kokoro
+    restart: unless-stopped
+    profiles: ["tts-kokoro"]
+    networks: [visiyon]
+
+  # Builds and tags the executor image used to run Filter code. This
+  # service never runs traffic — `entrypoint: ["true"]` makes it exit
+  # immediately after build so `docker compose up` doesn't leave a
+  # useless container around; its only job is making sure
+  # visiyon-sandbox-executor:latest exists before sandbox-runner needs it.
+  sandbox-executor:
+    build:
+      context: ./sandbox-runner/executor
+    image: visiyon-sandbox-executor:latest
+    container_name: visiyon-sandbox-executor-build
+    entrypoint: ["true"]
+    networks: [visiyon]
+
+  # Control service for the Functions/Filters sandbox. This is the ONLY
+  # container in the stack with access to the Docker socket — it uses that
+  # access solely to launch ephemeral, network-disabled executor
+  # containers per filter run (see sandbox-runner/app.py). Not reachable
+  # from outside the `visiyon` network; the backend calls it directly and
+  # requireAdmin gates everything upstream of that call.
+  sandbox-runner:
+    build:
+      context: ./sandbox-runner
+    container_name: visiyon-sandbox-runner
+    restart: unless-stopped
+    depends_on:
+      - sandbox-executor
+    environment:
+      EXECUTOR_IMAGE: visiyon-sandbox-executor:latest
+      SANDBOX_MEMORY_LIMIT: ${SANDBOX_MEMORY_LIMIT:-128m}
+      SANDBOX_CPU_QUOTA: ${SANDBOX_CPU_QUOTA:-50000}
+    volumes:
+      # Required to spawn the ephemeral executor containers. This is a
+      # real privilege escalation path if sandbox-runner itself is ever
+      # compromised — it is deliberately the smallest, simplest service in
+      # the stack (one file, no user input parsing beyond the Filter
+      # payload) to keep that surface minimal. Do not add other
+      # responsibilities to this container.
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [visiyon]
+
+  backend:
+    build:
+      context: ./backend
+    container_name: visiyon-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+      whisper:
+        condition: service_started
+      piper:
+        condition: service_started
+      sandbox-runner:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-visiyon}:${POSTGRES_PASSWORD:-visiyon}@postgres:5432/${POSTGRES_DB:-visiyon}
+      REDIS_URL: redis://redis:6379
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      # Optional: comma-separated list of Ollama instances, one per pinned
+      # GPU (e.g. "http://host.docker.internal:11434,http://host.docker.internal:11435").
+      # When set, the backend load-balances chats across them by picking
+      # whichever instance has the fewest in-flight requests. Leave unset
+      # for a single-GPU / single-instance setup — behavior is unchanged.
+      OLLAMA_URLS: ${OLLAMA_URLS:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      SEARXNG_URL: http://searxng:8080
+      WHISPER_URL: http://whisper:8000
+      SANDBOX_RUNNER_URL: http://sandbox-runner:8000
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-visiyon-backend}
+      CHANNEL_BOT_MODEL: ${CHANNEL_BOT_MODEL:-}
+      PIPER_URL: http://piper:5001
+      PIPER_VOICE: ${PIPER_VOICE:-en_US-lessac-medium}
+      # Only reachable/used if the matching --profile was started and the
+      # provider is selected in Admin > Settings > Voice (see coqui/ and
+      # kokoro/ above).
+      COQUI_URL: http://coqui:5002
+      KOKORO_URL: http://kokoro:5003
+      # Optional cloud TTS fallback/alternative — set to use ElevenLabs
+      # without touching the admin panel, or leave blank and set the key
+      # from Admin > Settings > Voice instead.
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_env}
+      PROVIDER_ENCRYPTION_KEY: ${PROVIDER_ENCRYPTION_KEY:-}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      # Scopes the shared login-session cookie so it's valid on every
+      # subdomain (e.g. ai.visiyon.com and a.visiyon.com both stay logged
+      # in). Leave unset for local/dev (localhost), set to ".visiyon.com"
+      # in production.
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      NODE_ENV: production
+      PORT: 4000
+      IMAGE_RETENTION_DAYS: ${IMAGE_RETENTION_DAYS:-3}
+      DOCUMENT_MAX_AGE_DAYS: ${DOCUMENT_MAX_AGE_DAYS:-3}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-SSO}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Visiyon AI <no-reply@visiyon.local>}
+      IMAGE_GEN_URL: ${IMAGE_GEN_URL:-}
+      IMAGE_GEN_API_KEY: ${IMAGE_GEN_API_KEY:-}
+      MUSIC_GEN_URL: ${MUSIC_GEN_URL:-}
+      MUSIC_GEN_API_KEY: ${MUSIC_GEN_API_KEY:-}
+      MUSIC_GEN_CALLBACK_URL: ${MUSIC_GEN_CALLBACK_URL:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PLANS: ${STRIPE_PLANS:-}
+      STRIPE_PLAN_QUOTAS: ${STRIPE_PLAN_QUOTAS:-}
+      ADMIN_2FA_REQUIRED: ${ADMIN_2FA_REQUIRED:-}
+      MODEL_COST_PER_1M: ${MODEL_COST_PER_1M:-}
+      QUOTA_USAGE_RETENTION_DAYS: ${QUOTA_USAGE_RETENTION_DAYS:-}
+      WEBHOOK_DELIVERY_RETENTION_DAYS: ${WEBHOOK_DELIVERY_RETENTION_DAYS:-}
+      GENERATED_FILES_DIR: /app/generated
+      MUSIC_FILES_DIR: /app/music
+      COMMUNITY_AI_KEY: ${COMMUNITY_AI_KEY:-}
+      CVMAKER_AI_KEY: ${CVMAKER_AI_KEY:-}
+      # Studio (in-browser code editor -> subdomain hosting) — see
+      # lib/sites.ts and routes/studio.ts. Must match the domain used in
+      # nginx/nginx.conf's wildcard server_name regex.
+      PUBLISHED_SITES_DIR: /app/sites
+      BASE_DOMAIN: ${BASE_DOMAIN:-visiyon.com}
+      # ---- Self-update (Admin > Updates) ----
+      # APP_VERSION is what's shown in the sidebar and compared against
+      # the latest GitHub release. Bump it as part of cutting a release.
+      # UPDATE_REPO is "owner/name" of the GitHub repo to check for new
+      # releases — leave empty to hide the Updates page entirely (e.g.
+      # for a private fork that doesn't want this). UPDATER_URL points at
+      # the sidecar below that actually runs `git pull` + rebuild; only
+      # needs changing if you renamed that service.
+      APP_VERSION: ${APP_VERSION:-2.0.0}
+      UPDATE_REPO: ${UPDATE_REPO:-}
+      UPDATER_URL: http://updater:9000
+      # ---- Model training (Admin > Training) ----
+      # See backend/training/README.md — the feature works without any of
+      # this (dataset upload/queueing), but actually running a job needs
+      # `pip install -r backend/training/requirements.txt` and a
+      # llama.cpp checkout in the backend container/host.
+      TRAINING_DATA_DIR: /data/training/datasets
+      TRAINING_OUTPUT_DIR: /data/training/output
+      LLAMA_CPP_DIR: ${LLAMA_CPP_DIR:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      # ---- Fraud-guard (observe-only site-activity reporting) ----
+      # Failed logins / rate-limit hits get POSTed here so they show up on
+      # fraud-guard's dashboard. Leave FRAUD_GUARD_URL empty to disable —
+      # this never blocks anything on its own. Must match GUARD_API_KEY in
+      # fraud-guard's own .env.
+      FRAUD_GUARD_URL: ${FRAUD_GUARD_URL:-}
+      FRAUD_GUARD_API_KEY: ${FRAUD_GUARD_API_KEY:-}
+    healthcheck:
+      # 127.0.0.1 instead of "localhost": on some Node/Docker combos
+      # "localhost" resolves to ::1 (IPv6) first, and if the app only binds
+      # IPv4 that connection is refused every single time \u2014 which is
+      # exactly the failure mode seen here (backend, using the same style
+      # check, passed fine). Longer start_period/retries because this
+      # container is competing for CPU with several other images building
+      # at the same time on first `docker compose up --build`.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - generated_files_data:/app/generated
+      - music_files_data:/app/music
+      - published_sites_data:/app/sites
+      - training_data:/data/training
+    networks: [visiyon]
+
+  # ---- Self-update sidecar (Admin > Updates) ----
+  # Runs `git pull` + `docker compose up -d --build` on request from the
+  # backend (see backend/src/lib/updates.ts). Needs the host's docker
+  # socket and a checkout of this repo mounted in — nothing else in the
+  # stack gets that access. Entirely optional: if you don't want
+  # in-panel updates, comment this whole service out and UPDATE_REPO
+  # left unset will hide the feature in the admin panel.
+  updater:
+    build:
+      context: ./updater
+    container_name: visiyon-updater
+    restart: unless-stopped
+    environment:
+      REPO_DIR: /repo
+      UPDATE_BRANCH: ${UPDATE_BRANCH:-main}
+      # If you brought the stack up with the GPU override (see
+      # docker-compose.gpu.yml and backend/src/lib/system.ts), set this to
+      # the same value so self-updates re-apply it instead of silently
+      # reverting to the base compose file (no GPU) on every update.
+      # Example: COMPOSE_GPU_OVERRIDE=docker-compose.gpu.yml
+      COMPOSE_GPU_OVERRIDE: ${COMPOSE_GPU_OVERRIDE:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Bind-mount the actual repo checkout on the host (the directory
+      # this docker-compose.yml lives in) so `git pull` and `docker
+      # compose up --build` run against the real thing, not a copy.
+      - .:/repo
+    networks: [visiyon]
+    # No published port — only reachable from other containers on the
+    # `visiyon` network (the backend calls it directly).
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+    container_name: visiyon-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+    labels:
+      # Picked up by the `autoheal` service below. Docker itself never
+      # restarts a container just because its healthcheck starts failing
+      # ("unhealthy" is only a status, not an action) — that's exactly why
+      # this container was sitting broken every morning until someone ran
+      # `docker compose up` by hand. autoheal watches for the "unhealthy"
+      # state on labeled containers and force-restarts them automatically,
+      # so recovery no longer depends on a human noticing.
+      autoheal: "true"
+    healthcheck:
+      # wget over node -e: alpine ships wget as a tiny busybox binary that
+      # starts near-instantly, unlike spawning a whole new Node process per
+      # check (which was timing out under the CPU load of everything else
+      # building at once during `docker compose up --build`).
+      test: ["CMD", "wget", "-qO-", "--spider", "http://127.0.0.1:3000"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
+    networks: [visiyon]
+
+  # ---- Watchdog: auto-restarts any container labeled autoheal=true as
+  # soon as Docker marks it "unhealthy". Without this, a healthcheck
+  # failure just sits there forever (Docker's restart policies only react
+  # to the container process exiting, never to health status), which is
+  # why visiyon-frontend needed a manual `docker compose up` every time it
+  # went "unhealthy" overnight. This closes that gap for good — add the
+  # same `labels: [autoheal: "true"]` to any other service that should
+  # self-heal the same way. ----
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: visiyon-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 10
+      AUTOHEAL_START_PERIOD: 60
+      AUTOHEAL_DEFAULT_STOP_TIMEOUT: 10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [visiyon]
+
+  # ---- Self-hosted image generation (optional, GPU) ----
+  # Runs AUTOMATIC1111/stable-diffusion-webui on your own GPU(s) — tested
+  # against 2x Tesla P100 (16GB, no tensor cores, so we run --no-half-vae
+  # and skip xformers which needs newer compute capability). Both services
+  # are behind the "selfhosted-images" profile so a normal `docker compose
+  # up` on a GPU-less box doesn't try to start them:
+  #   docker compose --profile selfhosted-images up -d
+  # Then in Admin > Settings > Image generation, pick provider
+  # "Self-hosted (stable-diffusion-webui)" — the URL defaults to
+  # http://sd-wrapper:8000 already, nothing else to configure.
+  sd-webui:
+    image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
+    container_name: visiyon-sd-webui
+    restart: unless-stopped
+    profiles: ["selfhosted-images"]
+    environment:
+      # Note: this image (ai-dock/stable-diffusion-webui) always launches
+      # on port 17860 regardless of --port — see sd-wrapper's A1111_URL
+      # below, which points at 17860 to match.
+      WEBUI_ARGS: "--api --listen --no-half-vae --opt-sdp-attention"
+      CF_QUICK_TUNNELS: "false"
+      WEB_ENABLE_AUTH: "false"
+    volumes:
+      - sd_models_data:/opt/stable-diffusion-webui/models
+      - sd_outputs_data:/opt/stable-diffusion-webui/outputs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks: [visiyon]
+
+  sd-wrapper:
+    build:
+      context: ./sd-wrapper
+    container_name: visiyon-sd-wrapper
+    restart: unless-stopped
+    profiles: ["selfhosted-images"]
+    depends_on:
+      - sd-webui
+    environment:
+      A1111_URL: http://sd-webui:17860
+      SD_MODEL: ${SD_MODEL:-}
+      WRAPPER_API_KEY: ${WRAPPER_API_KEY:-}
+    networks: [visiyon]
+
+  nginx:
+    image: nginx:alpine
+    container_name: visiyon-nginx
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - published_sites_data:/sites:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks: [visiyon]
+
+networks:
+  visiyon:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  generated_files_data:
+  music_files_data:
+  published_sites_data:
+  training_data:
+  whisper_data:
+  coqui_models:
+  sd_models_data:
+  sd_outputs_data:

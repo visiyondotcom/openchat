@@ -1,0 +1,40 @@
+# Dev override — use ALONGSIDE docker-compose.yml, not instead of it:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build frontend backend
+#
+# This runs both services against your live source folders with
+# hot-reload (Next.js dev server for frontend, `tsx watch` for backend)
+# instead of doing a full production build on every change. Edit a file
+# on your host, the change shows up automatically — no
+# "docker compose up --build" and no multi-minute wait.
+#
+# Only re-run with --build when you change package.json in either
+# service — that's the one case a plain restart won't pick up, since
+# the volumes below only cover source code, not each container's own
+# node_modules.
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next_cache:/app/.next
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+      WATCHPACK_POLLING: "true"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - backend_node_modules:/app/node_modules
+
+volumes:
+  frontend_node_modules:
+  frontend_next_cache:
+  backend_node_modules:

@@ -1,0 +1,50 @@
+# Optional override: gives the `backend` container direct GPU passthrough
+# so `nvidia-smi` runs inside it and the Admin > System resources panel can
+# show GPU stats (see the comment at the top of backend/src/lib/system.ts).
+#
+# This is split out from docker-compose.yml (rather than baked into the
+# backend service directly) because most deployments don't have a GPU on
+# the same host as the backend — Ollama/sd-webui usually own the GPU on a
+# separate box or a separate container. Only apply this file if the
+# backend container itself has a GPU available (nvidia-container-toolkit
+# installed on the host, same as sd-webui needs).
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+#
+# To use a specific GPU instead of all of them, replace `count: all` below
+# with `device_ids: ["0"]` (or whichever index `nvidia-smi -L` shows on the
+# host).
+#
+# Two passthrough mechanisms are declared together on purpose:
+#   - `deploy.resources.reservations.devices` is the modern, Swarm-style
+#     syntax. Outside Swarm mode it only takes effect on Docker Compose
+#     v2.3+ (`docker compose version` to check) — older Compose versions
+#     silently ignore it, which is the most common reason GPU passthrough
+#     "does nothing" with no error.
+#   - `runtime: nvidia` + `NVIDIA_VISIBLE_DEVICES` is the older, legacy
+#     mechanism (nvidia-container-runtime). It works on effectively every
+#     Compose version, but requires the host to have `nvidia-container-
+#     toolkit` configured as the default/available Docker runtime:
+#       sudo nvidia-ctk runtime configure --runtime=docker
+#       sudo systemctl restart docker
+#
+# Keeping both means this override works whichever mechanism your host
+# actually has set up. If GPU stats still don't show up after applying
+# this file, verify passthrough independently of this project first:
+#   docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+# If that fails too, the issue is the host's nvidia-container-toolkit
+# setup, not this compose file.
+services:
+  backend:
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
