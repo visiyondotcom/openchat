@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /register
+Disallow: /chat
+Disallow: /admin
+Disallow: /settings
+Disallow: /studio
+Disallow: /music
+Disallow: /playground
+Disallow: /automations
+Disallow: /arena
+Disallow: /channels
+Disallow: /notes
+Disallow: /share
+
+Sitemap: https://ai.visiyon.com/sitemap.xml
