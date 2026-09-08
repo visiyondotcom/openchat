@@ -1,0 +1,16 @@
+# Deps for train_lora.py — deliberately kept out of the backend's normal
+# Node dependency tree. Install these in the backend container only if
+# Admin > Training will actually be used (they're large, and most of them
+# need a CUDA-capable GPU to be useful).
+#
+#   pip install -r backend/training/requirements.txt
+#
+# GGUF conversion also needs a llama.cpp checkout — see
+# backend/training/README.md.
+torch>=2.2
+transformers>=4.44
+peft>=0.12
+datasets>=2.20
+accelerate>=0.33
+bitsandbytes>=0.43
+sentencepiece
