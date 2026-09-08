@@ -1,4 +1,22 @@
-# openchat
+# openchat V2.0.0
+
+<img width="1914" height="902" alt="image" src="https://github.com/user-attachments/assets/b0d69099-55cc-4851-ad3b-3e93f6883427" />
+
+<img width="1902" height="550" alt="image" src="https://github.com/user-attachments/assets/d9e950e3-9247-4f6c-84a0-2e6675037fde" />
+
+<img width="1905" height="881" alt="image" src="https://github.com/user-attachments/assets/de18eb65-65d2-4977-982c-7477ede807f4" />
+
+<img width="1912" height="908" alt="image" src="https://github.com/user-attachments/assets/3ae62ff5-79fe-489c-92fc-74f4c18ab826" />
+
+<img width="1914" height="914" alt="image" src="https://github.com/user-attachments/assets/78b33b40-050a-41cd-97fd-2b95acc9549d" />
+
+Openchat All in One AI Video, Saas, Images, Motion Generator, Video editor, and more
+
+
+Start Now Your Own Kling AI Business or OpenAI Business 
+
+Open-source, self-hosted AI platform to launch your own AI business — Kling-style video generation, OpenAI-style chat API, multiple LLMs (Ollama/Llama), image generation, multi-user accounts, and built-in Stripe billing. White-label ready.
+
 Open-source AI chat interface, self-hostable and built to run alongside the rest of the Visiyon platform.
 Open-source, self-hosted AI chat platform — ChatGPT alternative with local LLM support (Ollama), multi-user accounts, and optional Stripe billing to run as your own SaaS. Part of the Visiyon AI suite.
 Visiyon AI Selfhosted Open AI Claude Code, Claude Coding, Selfhosted Claude API, Run Your Own Claude On Your Server, Saas AI, Cursor XAI, Grok AI, Selfhosted GROK AI, Deepseek, Qwen AI, GLM 5.2 AI, KIMI 3 AI Selfhosted Platform, Anthropic Platform 🚀
