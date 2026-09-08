@@ -1,0 +1,16 @@
+FROM node:20-bookworm-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package.json ./
+RUN npm install
+
+COPY prisma ./prisma
+RUN npx prisma generate
+
+EXPOSE 4000
+# tsx watch: recompiles/restarts on file change, no separate build step —
+# node_modules and prisma client come from the image built above, your
+# source comes from the bind mount in docker-compose.dev.yml.
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && npx tsx watch src/index.ts"]
