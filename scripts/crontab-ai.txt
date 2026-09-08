@@ -1,0 +1,4 @@
+# crontab -u ai — herstel dit met: crontab -u ai crontab-ai.txt
+# m h  dom mon dow   command
+0 4 * * 0 docker system prune -af --volumes >> /var/log/docker-prune.log 2>&1
+*/5 * * * * /home/ai/check-health.sh
