@@ -1,0 +1,636 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+.dark {
+  --visiyon-bg: 0 0 0;
+  --visiyon-panel: 0 0 0;
+  --visiyon-panel2: 10 10 10;
+  /* Flat look (matches /generate): no visible hairline anywhere.
+     Panels are told apart by background shade only, never a border
+     line, so this is set equal to the page background instead of a
+     lighter grey. */
+  --visiyon-border: 0 0 0;
+  --visiyon-text: 255 255 255;
+  --visiyon-text-2-alpha: 0.62;
+  --visiyon-text-3-alpha: 0.38;
+  --visiyon-accent: 255 255 255;
+}
+
+.light {
+  /* Slightly warmer/softer than pure white — pure #fff panels next to a
+     pure #fff page have no separation at all, so panels sit a hair below
+     the page and everything gets a hairline border + a very soft shadow
+     (see --visiyon-shadow-* below) to read as distinct surfaces instead
+     of a flat sheet. */
+  --visiyon-bg: 255 255 255;
+  --visiyon-panel: 252 252 251;
+  --visiyon-panel2: 246 246 244;
+  /* Flat look (matches /generate): drop the hairline border. On this
+     theme panels still read as distinct surfaces because of the soft
+     shadow below (--visiyon-shadow-*), not because of a border line. */
+  --visiyon-border: 252 252 251;
+  --visiyon-text: 23 23 22;
+  --visiyon-text-2-alpha: 0.62;
+  --visiyon-text-3-alpha: 0.40;
+  --visiyon-accent: 23 23 22;
+  --visiyon-shadow-color: 23 23 22;
+  --visiyon-shadow-sm: 0 1px 2px rgb(var(--visiyon-shadow-color) / 0.05);
+  --visiyon-shadow-md: 0 4px 16px -4px rgb(var(--visiyon-shadow-color) / 0.10),
+    0 1px 2px rgb(var(--visiyon-shadow-color) / 0.06);
+  --visiyon-shadow-lg: 0 12px 32px -8px rgb(var(--visiyon-shadow-color) / 0.14),
+    0 2px 6px rgb(var(--visiyon-shadow-color) / 0.06);
+}
+
+.midnight {
+  /* Charcoal theme: distinct from pure-black .dark — panels sit on a
+     lighter, slightly warm dark grey so sidebar items, hover states and
+     the active/rounded pill selection actually read against the
+     background instead of blending into flat black. */
+  --visiyon-bg: 13 13 14;
+  --visiyon-panel: 19 19 20;
+  --visiyon-panel2: 26 26 27;
+  /* Flat look (matches /generate): no hairline, panels rely on the
+     shadow below plus background shade to stay legible. */
+  --visiyon-border: 19 19 20;
+  --visiyon-text: 237 237 238;
+  --visiyon-text-2-alpha: 0.64;
+  --visiyon-text-3-alpha: 0.42;
+  --visiyon-accent: 237 237 238;
+  --visiyon-shadow-color: 0 0 0;
+  --visiyon-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.22);
+  --visiyon-shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.45);
+  --visiyon-shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.55);
+}
+
+.dark {
+  --visiyon-shadow-color: 0 0 0;
+  --visiyon-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.25);
+  --visiyon-shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5);
+  --visiyon-shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+}
+
+/* Reusable "soft" button style — rounded, hairline border, gentle shadow,
+   matches the light/professional reference look (e.g. a plain "Download"
+   button): no heavy fill, just enough definition to read as clickable. */
+.visiyon-btn-soft {
+  background: rgb(var(--visiyon-panel));
+  border: 1px solid rgb(var(--visiyon-border));
+  border-radius: 10px;
+  box-shadow: var(--visiyon-shadow-sm);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.visiyon-btn-soft:hover {
+  border-color: rgb(var(--visiyon-text) / 0.25);
+  box-shadow: var(--visiyon-shadow-md);
+}
+
+/* Same idea as .visiyon-btn-soft but for solid-fill primary buttons
+   (white/black submit buttons) that shouldn't get a border or bg change —
+   just a bit of lift on hover. */
+.visiyon-btn-primary {
+  box-shadow: var(--visiyon-shadow-sm);
+  transition: box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.visiyon-btn-primary:hover {
+  box-shadow: var(--visiyon-shadow-md);
+}
+
+/* Panels, dropdowns, modals, cards: consistent elevation + hairline
+   border instead of every component inventing its own shadow value.
+   Use these utility classes anywhere a surface needs to visually lift
+   off the page background (menu-popup, modals, cards). */
+.visiyon-elevated-sm {
+  box-shadow: var(--visiyon-shadow-sm);
+}
+.visiyon-elevated-md {
+  box-shadow: var(--visiyon-shadow-md);
+}
+.visiyon-elevated-lg {
+  box-shadow: var(--visiyon-shadow-lg);
+}
+
+/* The chat input bar keeps an intentionally dark background in both
+   themes (bg-[#161616] in ChatWindow.tsx), so its text/icons — which are
+   styled with the theme-driven text-visiyon-text utilities — must stay
+   white even under .light, or they render near-black-on-near-black. */
+.chat-input-bar {
+  --visiyon-text: 255 255 255;
+  --visiyon-text-2-alpha: 0.62;
+  --visiyon-text-3-alpha: 0.38;
+  --visiyon-accent: 255 255 255;
+}
+
+/* Send button waveform icon — idle state is static, "sending" state
+   plays a soft, staggered wave animation across each bar. */
+.send-wave-bar {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.send-wave-bars--active .send-wave-bar {
+  animation: send-wave-pulse 0.9s ease-in-out infinite;
+}
+
+.send-wave-bars--active .send-wave-bar:nth-child(1) { animation-delay: 0s; }
+.send-wave-bars--active .send-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.send-wave-bars--active .send-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.send-wave-bars--active .send-wave-bar:nth-child(4) { animation-delay: 0.1s; }
+.send-wave-bars--active .send-wave-bar:nth-child(5) { animation-delay: 0s; }
+
+@keyframes send-wave-pulse {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send-wave-bars--active .send-wave-bar {
+    animation: none;
+  }
+}
+
+/* The Attach/Tools/Documents/Prompts popups that open from the bar above
+   have their own theme-following background (bg-visiyon-bg), so unlike
+   the bar itself they must NOT inherit the forced-white override —
+   otherwise light theme renders white text on their white background. */
+.light .chat-input-bar .menu-popup {
+  --visiyon-text: 10 10 10;
+  --visiyon-text-2-alpha: 0.64;
+  --visiyon-text-3-alpha: 0.42;
+  --visiyon-accent: 10 10 10;
+}
+
+/* The fullscreen avatar/hologram overlay (ChatWindow.tsx) always renders on
+   a black backdrop by design, in both themes — but its conversation text
+   and buttons use the theme-driven text-visiyon-text utilities. Under
+   .light those resolve to near-black, which on this overlay's black
+   background was unreadable (near-black-on-black), same class of bug as
+   the chat input bar above. Force light text here regardless of theme. */
+.avatar-overlay {
+  --visiyon-text: 255 255 255;
+  --visiyon-text-2-alpha: 0.62;
+  --visiyon-text-3-alpha: 0.38;
+  --visiyon-accent: 255 255 255;
+}
+
+/* The "Want to be notified?" banner above the composer keeps an
+   intentionally dark background in both themes (bg-[#161616]), so its
+   theme-driven text-visiyon-text utilities must stay white under
+   .light too, or they render near-black-on-near-black — same bug class
+   as the chat input bar above. */
+.notify-banner {
+  --visiyon-text: 255 255 255;
+  --visiyon-text-2-alpha: 0.62;
+  --visiyon-text-3-alpha: 0.38;
+  --visiyon-accent: 255 255 255;
+}
+
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Only inner containers (sidebar list, chat log) should ever scroll.
+   Without this, the body can also grow scrollable and the browser draws
+   a second, separate scrollbar right next to the sidebar's own one. */
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Icon-only buttons (Send, Mic, Image, etc.) have no visible border in any
+   state by design — but browsers still draw their default focus outline
+   on click/tap, which showed up as a black rectangle around the icon.
+   Keep keyboard-tab navigation visible via a subtle ring instead. */
+button {
+  outline: none;
+}
+button:focus-visible {
+  outline: 2px solid rgb(var(--visiyon-text) / 0.35);
+  outline-offset: 2px;
+}
+
+body {
+  background: rgb(var(--visiyon-bg));
+  color: rgb(var(--visiyon-text));
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+::selection {
+  background: rgb(var(--visiyon-text));
+  color: rgb(var(--visiyon-bg));
+}
+
+/* Modern, slim, dark scrollbars for every scrollable container (sidebar
+   chat list, message log, admin panel, textareas, etc.) instead of the
+   default chunky OS scrollbar. Firefox + WebKit/Chromium. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--visiyon-text) / 0.18) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--visiyon-text) / 0.18);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--visiyon-text) / 0.32);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Markdown / code block polish inside chat bubbles */
+.prose-visiyon pre {
+  overflow-x: auto;
+}
+.prose-visiyon code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13.5px;
+}
+.prose-visiyon p {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+.prose-visiyon strong {
+  font-weight: 700;
+}
+.prose-visiyon h1,
+.prose-visiyon h2,
+.prose-visiyon h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.prose-visiyon a {
+  color: rgb(var(--visiyon-text));
+  text-decoration: underline;
+}
+
+/* "{model} thinking…" indicator shown before the first token arrives.
+   Purely text-driven (no separate dots to keep animating) — once real
+   content starts streaming in, this span is unmounted entirely, so
+   there's nothing left running that could keep "bouncing". */
+@keyframes visiyon-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.visiyon-shimmer-text {
+  /* Was hardcoded to rgba(255,255,255,...) — fine on the dark theme's
+     black background, but on .light (white background) that rendered as
+     near-white-on-white and made the "Thinking…" label unreadable while
+     the AI was working. Driven off --visiyon-text instead so it shimmers
+     dark-on-light in .light and light-on-dark in .dark, same as every
+     other themed text color in this file. */
+  background: linear-gradient(
+    90deg,
+    rgb(var(--visiyon-text) / 0.35) 0%,
+    rgb(var(--visiyon-text) / 0.35) 35%,
+    rgb(var(--visiyon-text) / 0.95) 50%,
+    rgb(var(--visiyon-text) / 0.35) 65%,
+    rgb(var(--visiyon-text) / 0.35) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: visiyon-shimmer 2.4s linear infinite;
+}
+
+/* Thin RGB glow border shown around the prompt box while the AI is
+   generating a reply. A spinning gradient square sits behind the box
+   on a dedicated pseudo-element (::before) — nothing here touches the
+   real DOM content, so it never hue-shifts the input text/icons, and
+   the actual prompt box is free to have its own translucent/glassy
+   fill (for the "see-through" look when the avatar view is active)
+   without the ring bleeding: `padding` on the wrapper reserves the
+   ring's 1.5px thickness, so only that sliver ever shows the
+   gradient — the rest of the gradient square sits directly under the
+   box's own fill. */
+@property --visiyon-rgb-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes visiyon-rgb-spin {
+  from {
+    --visiyon-rgb-angle: 0deg;
+  }
+  to {
+    --visiyon-rgb-angle: 360deg;
+  }
+}
+.visiyon-rgb-wrap {
+  position: relative;
+  border-radius: 13px;
+  border: 1.5px solid transparent;
+  --visiyon-rgb-angle: 0deg;
+  background:
+    linear-gradient(#000, #000) padding-box,
+    /* Only a short bright arc (~24deg out of 360) is lit — everything
+       else on the ring is transparent, so it reads as one short segment
+       slowly traveling around the box's edges/corners rather than a
+       full glowing outline. */
+    conic-gradient(
+        from var(--visiyon-rgb-angle) at 50% 50%,
+        transparent 0deg,
+        transparent 336deg,
+        #0a84ff 344deg,
+        #5ad6ff 350deg,
+        #00c7ff 354deg,
+        #5ad6ff 358deg,
+        transparent 360deg
+      )
+      border-box;
+  animation: visiyon-rgb-spin 6s linear infinite;
+  isolation: isolate;
+}
+.visiyon-rgb-wrap > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Floating cyan dust particles layered over the AI avatar photo — gives
+   constant, visible motion even when idle (not only while audio plays). */
+@keyframes visiyon-avatar-particle-float {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  12% {
+    opacity: var(--particle-opacity, 0.75);
+  }
+  85% {
+    opacity: var(--particle-opacity, 0.75);
+  }
+  100% {
+    transform: translateY(-46px) scale(0.5);
+    opacity: 0;
+  }
+}
+.visiyon-avatar-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgb(125 211 252);
+  pointer-events: none;
+  animation-name: visiyon-avatar-particle-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* Modern "AI" display font, scoped to the admin dashboard only (see
+   app/admin/layout.tsx, which loads Sora via next/font and sets
+   --font-admin). Headings get slightly tightened tracking so they read
+   like a product/ops console rather than plain body copy. */
+.admin-font {
+  font-family: var(--font-admin), ui-sans-serif, system-ui, sans-serif;
+}
+.admin-font h1,
+.admin-font h2,
+.admin-font h3 {
+  font-family: var(--font-admin), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Chat font choice (Settings → Appearance → Font) — a CSS custom property
+   set directly (see SettingsContent.tsx / layout.tsx's inline script),
+   not a fixed set of classes, so any font from the dropdown list can be
+   applied the same way. Only message/UI text follows this — code blocks
+   always stay monospace regardless of the choice. */
+html,
+body {
+  font-family: var(--visiyon-font, "General Sans", ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+}
+
+/* "Neurolink" icon shown next to the assistant's name (see
+   KnotAvatarIcon.tsx) — a hub node with five linked nodes. Drawn
+   entirely in currentColor so it automatically renders white on the
+   dark theme and black on the light theme (--visiyon-text), no
+   hardcoded palette. Idle: fully static. Active (generating): a pulse
+   sweeps outward from the hub along each link, staggered, lighting up
+   the nodes as it reaches them — stops instantly the moment `active`
+   goes false. */
+.visiyon-neuro-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.visiyon-neuro-link {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  opacity: 0.35;
+}
+.visiyon-neuro-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.55;
+}
+.visiyon-neuro-hub {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.visiyon-neuro-icon--active .visiyon-neuro-link {
+  animation: visiyon-neuro-link-pulse 1.8s ease-in-out infinite;
+}
+.visiyon-neuro-icon--active .visiyon-neuro-node {
+  animation: visiyon-neuro-node-pulse 1.8s ease-in-out infinite;
+}
+.visiyon-neuro-icon--active .visiyon-neuro-hub {
+  animation: visiyon-neuro-hub-pulse 0.9s ease-in-out infinite;
+  filter: drop-shadow(0 0 2.5px currentColor);
+}
+@keyframes visiyon-neuro-link-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  35% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.3;
+  }
+}
+@keyframes visiyon-neuro-node-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.35);
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+  70% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+}
+@keyframes visiyon-neuro-hub-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+/* SparkleAvatarIcon.tsx — Claude-style two-sparkle mark (one main, one
+   small companion), drop-in replacement for the old neural-net glyph above
+   (same 16px default size, same slot next to the assistant's name/
+   timestamp). Idle: fully static. Active (generating): both sparkles
+   breathe/twinkle independently — gentle scale + opacity + soft glow —
+   plus a continuous full-icon spin that speeds up/slows down each
+   rotation and alternates direction every rotation, using CSS custom
+   properties the component re-randomizes (duration, delay, rotation) on
+   every idle→active transition, so the motion never plays back
+   identically twice, while staying understated and professional. Fully
+   responsive: driven by the SVG's viewBox + the `size` prop, so it
+   scales cleanly at any dimension. */
+.visiyon-sparkle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.visiyon-sparkle-mark {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.visiyon-sparkle-mark--minor {
+  opacity: 0.7;
+}
+.visiyon-sparkle-icon--active .visiyon-sparkle-mark--main {
+  animation: visiyon-sparkle-pulse var(--visiyon-spark-d1, 1.4s) ease-in-out var(--visiyon-spark-de1, 0s) infinite;
+}
+.visiyon-sparkle-icon--active .visiyon-sparkle-mark--minor {
+  animation: visiyon-sparkle-twinkle var(--visiyon-spark-d2, 1.2s) ease-in-out var(--visiyon-spark-de2, 0s) infinite;
+}
+/* Occasional full-icon spin, on top of the per-mark pulse/twinkle above —
+   applied to the wrapper (not the individual marks) so it doesn't fight
+   with their own rotate() transforms. Continuously rotates: each cycle
+   speeds up then slows down (uneven keyframe spacing below instead of a
+   single linear/eased timing function), and `alternate` flips the spin
+   direction (clockwise, then counter-clockwise) every single rotation. */
+.visiyon-sparkle-icon--active {
+  animation: visiyon-sparkle-spin var(--visiyon-spark-spin-d, 4.5s) linear var(--visiyon-spark-spin-delay, 0s) infinite alternate;
+}
+@keyframes visiyon-sparkle-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  18% {
+    transform: rotate(150deg); /* fast burst out of the gate */
+  }
+  50% {
+    transform: rotate(210deg); /* slows through the middle */
+  }
+  82% {
+    transform: rotate(350deg); /* speeds up again on approach */
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes visiyon-sparkle-pulse {
+  0%,
+  100% {
+    transform: scale(0.82) rotate(0deg);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.08) rotate(var(--visiyon-spark-rot1, 8deg));
+    opacity: 1;
+    filter: drop-shadow(0 0 3px currentColor);
+  }
+}
+@keyframes visiyon-sparkle-twinkle {
+  0%,
+  100% {
+    transform: scale(0.55) rotate(0deg);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(1.15) rotate(var(--visiyon-spark-rot2, -10deg));
+    opacity: 0.95;
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .visiyon-sparkle-icon--active,
+  .visiyon-sparkle-icon--active .visiyon-sparkle-mark--main,
+  .visiyon-sparkle-icon--active .visiyon-sparkle-mark--minor {
+    animation: none;
+  }
+}
+
+/* Subtle "message appears" motion — plays once when a message bubble first
+   mounts (both your own message right after pressing Enter/Send, and each
+   assistant reply as it starts), matching the gentle fade + rise Claude
+   uses instead of messages just popping into place instantly. */
+.visiyon-message-appear {
+  animation: visiyon-message-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes visiyon-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .visiyon-message-appear {
+    animation: none;
+  }
+}
+
+/* iOS Safari auto-zooms the whole page on focus of any <input>/<textarea>/
+   <select> whose computed font-size is below 16px, and — unlike a normal
+   pinch-zoom — never zooms back out on its own once you blur the field.
+   That's what made the site "randomly" stop being responsive after opening
+   the support chat, the nav search, a form field, etc. Several fields across
+   the app (chat widget, nav search, settings/auth forms, admin forms, ...)
+   use Tailwind arbitrary sizes like text-[13px]/text-[13.5px]/text-[14px],
+   all below the 16px threshold. Rather than hunting down every occurrence
+   individually (and missing the next one someone adds), force 16px on all
+   form fields on mobile widths only — desktop keeps every field's intended
+   visual size untouched. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Hides the scrollbar on horizontally-scrollable strips (e.g. the mobile
+   tab bar on /generate) while keeping them scrollable by touch/drag —
+   used via className="no-scrollbar". */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
