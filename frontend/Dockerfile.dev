@@ -1,0 +1,9 @@
+FROM node:20-alpine
+WORKDIR /app
+# Only package.json is copied here — node_modules itself comes from the
+# named volume declared in docker-compose.dev.yml, so a fresh container
+# doesn't need to reinstall every time you restart it.
+COPY package.json ./
+RUN npm install --legacy-peer-deps
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
