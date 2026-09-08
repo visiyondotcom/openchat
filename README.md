@@ -1,5 +1,7 @@
 # openchat V2.0.0
 
+<img width="1900" height="906" alt="image" src="https://github.com/user-attachments/assets/e5d52f1e-5c35-4b3b-b11b-223c5efc401e" />
+
 <img width="1914" height="902" alt="image" src="https://github.com/user-attachments/assets/b0d69099-55cc-4851-ad3b-3e93f6883427" />
 
 <img width="1902" height="550" alt="image" src="https://github.com/user-attachments/assets/d9e950e3-9247-4f6c-84a0-2e6675037fde" />
