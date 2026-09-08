@@ -1,0 +1,36 @@
+# Minimal SearXNG config for Visiyon's backend web-search integration.
+# The backend calls SearXNG's /search?format=json endpoint directly
+# (container-to-container on the `visiyon` network) — the `json` format
+# must be explicitly enabled below, it is disabled by default.
+#
+# Regenerate `secret_key` for production:
+#   openssl rand -hex 32
+
+use_default_settings: true
+
+general:
+  instance_name: "Visiyon Search"
+
+server:
+  secret_key: "ab174ea4c0842100f32bb84758cf4ec1f17965a998ecf807bc7547e6e57065b0"
+  limiter: false
+  image_proxy: false
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json
+
+# Trim to whichever engines you actually want live results from — fewer
+# engines means faster responses and less chance of a slow/broken engine
+# stalling a query. This is a reasonable general-purpose default set.
+engines:
+  - name: google
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: wikipedia
+    disabled: false
+  - name: bing
+    disabled: false
